@@ -8,7 +8,7 @@ You'll want something like this:
 ```json
 {
     "BUCKET_FORMAT": "WUVTFM_{0}",
-    "SOURCE_URL_FORMAT": "http://alexandria.wuvt.vt.edu/archive/pgmcheck/{studio}/2017/04/17/{filename}",
+    "SOURCE_URL_FORMAT": "http://alexandria.wuvt.vt.edu/archive/pgmcheck/{studio}/{year}/{month}/{day}/{filename}",
     "ACCOUNTS": {
         "pgmcheck": "hunter2"
     }
