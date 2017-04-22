@@ -1,7 +1,7 @@
 # archive-to-ia
 
-A simple Flask application that uses the S3 API to stream uploads from a file
-server to the Internet Archive.
+A simple Flask application that uploads directly from our storage server to the
+Internet Archive using their API.
 
 ## Configuration
 You'll want something like this:
