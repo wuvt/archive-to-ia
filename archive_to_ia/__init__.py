@@ -1,12 +1,12 @@
-import boto3
-import botocore.exceptions
+import datetime
 import os.path
 import requests
+import internetarchive
 from flask import abort, Flask, request, Response
 from functools import wraps
 
 app = Flask(__name__)
-app.config.setdefault('S3_ENDPOINT', 'https://s3.us.archive.org')
+app.config.setdefault('ITEM_METADATA', {})
 
 config_path = os.environ.get('APP_CONFIG_PATH', 'config.json')
 app.config.from_json(config_path)
@@ -29,49 +29,34 @@ def requires_auth(f):
     return requires_auth_decorator
 
 
-def process_upload(bucket, filename, fileobj):
-    s3 = boto3.resource(
-        's3',
-        endpoint_url=app.config['S3_ENDPOINT'],
-        aws_access_key_id=app.config['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=app.config['AWS_SECRET_ACCESS_KEY'])
-
-    yield "Create bucket if needed...\n"
-
-    # Check if bucket exists and create it if it doesn't
-    try:
-        s3.meta.client.head_bucket(Bucket=bucket)
-    except botocore.exceptions.ClientError as e:
-        error_code = int(e.response['Error']['Code'])
-        if error_code == 404:
-            s3.create_bucket(Bucket=bucket)
-        else:
-            raise
-
-    yield "Start upload...\n"
-    s3.upload_fileobj(fileobj, bucket, filename)
+def process_upload(identifier, filename, fileobj, metadata):
+    yield "Start upload to {0}...\n".format(identifier)
+    internetarchive.upload(
+        identifier,
+        files={filename: fileobj},
+        metadata=metadata,
+        access_key=app.config['IA_ACCESS_KEY'],
+        secret_key=app.config['IA_SECRET_KEY'])
     yield "Done."
 
 
-@app.route('/upload/<string:studio>/<int:year>/<int:month>/<int:day>/<string:filename>', methods=['POST'])
+@app.route('/upload/<string:studio>/<int:year>/<int:month>/<int:day>/<int:hour>', methods=['POST'])
 @requires_auth
-def upload(studio, year, month, day, filename):
+def upload(studio, year, month, day, hour):
     studio = os.path.basename(studio)
-    filename = os.path.basename(filename)
+    dt = datetime.datetime(year, month, day, hour)
+    format_data = dict(studio=studio, studio_upper=studio.upper(), dt=dt)
 
-    r = requests.get(
-        app.config['SOURCE_URL_FORMAT'].format(
-            studio=studio,
-            year=year,
-            month=month,
-            day=day,
-            filename=filename),
-        stream=True)
+    filename = app.config['DEST_FILENAME'].format(**format_data)
+    identifier = app.config['ITEM_ID'].format(**format_data)
+
+    metadata = {}
+    for k in app.config['ITEM_METADATA'].keys():
+        metadata[k] = app.config['ITEM_METADATA'][k].format(**format_data)
+
+    r = requests.get(app.config['SOURCE_URL'].format(**format_data),
+                     stream=True)
     if r.status_code != 200:
         abort(404)
 
-    barename = os.path.splitext(filename)[0]
-    bucket = app.config['BUCKET_FORMAT'].format(studio=studio,
-                                                studio_upper=studio.upper(),
-                                                barename=barename)
-    return Response(process_upload(bucket, filename, r.raw))
+    return Response(process_upload(identifier, filename, r.raw, metadata))
