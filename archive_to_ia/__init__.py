@@ -53,9 +53,12 @@ def process_upload(bucket, filename, fileobj):
     yield "Done."
 
 
-@app.route('/upload/<string:studio>/<string:year>/<string:month>/<string:day>/<string:filename>', methods=['POST'])
+@app.route('/upload/<string:studio>/<int:year>/<int:month>/<int:day>/<string:filename>', methods=['POST'])
 @requires_auth
 def upload(studio, year, month, day, filename):
+    studio = os.path.basename(studio)
+    filename = os.path.basename(filename)
+
     r = requests.get(
         app.config['SOURCE_URL_FORMAT'].format(
             studio=studio,
@@ -68,5 +71,7 @@ def upload(studio, year, month, day, filename):
         abort(404)
 
     barename = os.path.splitext(filename)[0]
-    bucket = app.config['BUCKET_FORMAT'].format(barename)
+    bucket = app.config['BUCKET_FORMAT'].format(studio=studio,
+                                                studio_upper=studio.upper(),
+                                                barename=barename)
     return Response(process_upload(bucket, filename, r.raw))
