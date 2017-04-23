@@ -29,13 +29,13 @@ def requires_auth(f):
     return requires_auth_decorator
 
 
-def process_upload(identifier, filename, fileobj, metadata):
+def process_upload(identifier, filename, fileobj, metadata, checksum):
     yield "Start upload to {0}...\n".format(identifier)
     internetarchive.upload(
         identifier,
         files={filename: fileobj},
         metadata=metadata,
-        verify=False,
+        checksum=checksum,
         access_key=app.config['IA_ACCESS_KEY'],
         secret_key=app.config['IA_SECRET_KEY'])
     yield "Done."
@@ -47,6 +47,7 @@ def upload(studio, year, month, day, hour):
     studio = os.path.basename(studio)
     dt = datetime.datetime(year, month, day, hour)
     format_data = dict(studio=studio, studio_upper=studio.upper(), dt=dt)
+    checksum = request.form['md5sum']
 
     filename = app.config['DEST_FILENAME'].format(**format_data)
     identifier = app.config['ITEM_ID'].format(**format_data)
@@ -60,4 +61,5 @@ def upload(studio, year, month, day, hour):
     if r.status_code != 200:
         abort(404)
 
-    return Response(process_upload(identifier, filename, r.raw, metadata))
+    return Response(process_upload(identifier, filename, r.raw, metadata,
+                                   checksum))
