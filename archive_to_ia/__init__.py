@@ -35,6 +35,7 @@ def process_upload(identifier, filename, fileobj, metadata):
         identifier,
         files={filename: fileobj},
         metadata=metadata,
+        checksum=False,
         verify=False,
         access_key=app.config['IA_ACCESS_KEY'],
         secret_key=app.config['IA_SECRET_KEY'])
